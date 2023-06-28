@@ -1,0 +1,139 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+# Setup
+
+```{r}
+library(dplyr)
+library(ggplot2)
+```
+
+# Scope
+
+* Pescaria **MIS_MIS** na **Costa Sul** de Portugal (27.9.a.s.a)
+
+* *Duas* fishing seasons mais recentes, contrastantes com *uma* season mais antiga com trend divergente
+
+# Decisões a tomar
+
+## Quando começa a fishing season?
+
+* Precisamos de identificar *épocas de reprodução*:
+
+* Evoluçao do *sex ratio* ao longo do tempo - saída das fêmeas dos pesqueiras para desovar
+
+  * Dados das amostragens biologicas de olhão
+
+* Evolução dos comprimentos médios dos indiviudos
+  
+  * Dados das amostragens em lotas - concentrar no sul
+
+# Importar dados
+
+## Biológicas
+
+```{r}
+source('CatDyn/scripts/0010_importa_biologicas_sic.R')
+source('CatDyn/scripts/0020_importa_biologicas_naut.R')
+source('CatDyn/scripts/0030_junta_biologicas_sic_e_naut_calculca_regressoes.R')
+
+#Output que interessa: bio_tmp
+```
+
+
+```{r}
+bio_tmp %>% 
+  filter(regiao == '27.9.a.s.a') %>% 
+  # mutate(mes = substr(DATA, 6,7)) %>%
+  mutate(mes = as.numeric(mes) %>% factor) %>% 
+  group_by(ano,mes) %>% 
+  summarise(F_RATIO = sum(sexo == 'F')/length(sexo)) %>%
+  ggplot() + 
+  geom_line(aes(x = mes,
+                y = F_RATIO,
+                group = ano,
+                color = ano)) + 
+  geom_hline(aes(yintercept = 0.5),color = 'black') +
+  facet_wrap(ano~.) +
+  theme_bw()
+
+```
+
+## Concurrent Sampling (Lotas)
+
+```{r}
+source('CatDyn/scripts/0040_importa_dados_concurrent_sampling_sic.R')
+source('CatDyn/scripts/0050_importa_dados_concurrent_sampling_naut.R')
+source('CatDyn/scripts/0060_combina_dados_concurrent_sic_naut_converte_pesos_comp.R')
+
+# Output que interessa: naut_peso
+```
+
+Para fazer:
+
+Agregar tabela à semana_ano
+Atribuir semanador a esta tabela
+
+## Vendas-Dia
+
+Carregar vendas dia:
+
+```{r, include = F}
+# source('scripts/vd_import.R')
+getwd()
+load('CatDyn/data/initial_data_occ.Rdata')
+load('CatDyn/data/initial_data_occ_sumario.Rdata')
+```
+
+```{r, include = F}
+
+# Calcula numero de semanas desde o inicio do ano de calendario
+semanador_y = function(x){
+  week_start =paste0(as.numeric(as.character(x$year_sale)), '-01-01') %>% 
+    as.POSIXct(format = '%Y-%m-%d')
+    res = (difftime(x$IDATVEND, week_start, units = 'days')/7 +1) %>% trunc()
+    return(res)
+  }
+
+# Calcula numero de semanas desde o inicio da fishing season
+semanador_fs = function(x){
+  mod = ifelse(as.numeric(as.character(x$year_sale)) == as.numeric(as.character(x$fishing_season)),
+               0,
+               1)
+  week_start =paste0(as.numeric(as.character(x$year_sale))-mod, '-10-01') %>% 
+    as.POSIXct(format = '%Y-%m-%d')
+    res = (difftime(x$IDATVEND, week_start, units = 'days')/7 +1) %>% trunc()
+    return(res)
+  }
+
+arranjador = function(df){
+  temp = df %>%
+    mutate(regiao = case_when(as.character(zona) %in% 
+                              c('27.9.a.c.n', '27.9.a.c.s') ~ 'Costa Ocidental',
+                            as.character(zona) == '27.9.a.s.a' ~ 'Costa Sul',
+                            T ~ as.character(zona)),
+           dia = weekdays(IDATVEND),
+          fishing_season = case_when(month_sale %in% c('10','11','12') ~
+                                       as.numeric(as.character(year_sale)),
+                                       T ~ as.numeric(as.character(year_sale)) - 1) %>% factor)
+  return(temp)
+}
+```
+
+# Fishing Season 2021-2022 
+
+```{r}
+vd_21_22 = vd %>%
+  filter(year_sale %in% c(2021,2022))
+```
+
+```{r}
+vd_21_22 = arranjador(vd_21_22)
+vd_21_22$semana_fs = semanador_fs(vd_21_22) 
+vd_21_22 = vd
+```
+
+
+
