@@ -281,7 +281,7 @@ occ_cat = as.CatDynData(x=df,
                        unitseff="trips",
                        unitscat="kg",
                        unitsmbw="g",
-                       nmult="mill",
+                       nmult="thou",
                        season.dates=c(as.Date("2021-01-01"),
                                       as.Date("2021-12-26")))
 
@@ -291,12 +291,12 @@ plot.CatDynData(occ_cat,
                 hem = 'N')
 
 M         <- 1/52 #1/Time step
-N0.ini    <- 10 #billions
-P1.ini    <- 0.1 #billions
-P2.ini    <- 0.05 #billions
-k.ini     <- 0.1 #1/n of boats
-alpha.ini <- 0.7 #adimensional
-beta.ini  <- 0.6 #adimensional
+N0.ini    <-100 #billions
+P1.ini    <- 10 #billions
+P2.ini    <- 10 #billions
+k.ini     <- 10 #1/n of boats
+alpha.ini <- 1 #adimensional
+beta.ini  <- 1 #adimensional
 P1 = 51
 pars.ini  <- log(c(M,
                    N0.ini,
