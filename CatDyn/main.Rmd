@@ -8,6 +8,8 @@ output: html_notebook
 ```{r}
 library(dplyr)
 library(ggplot2)
+library(tidyr)
+library(imputeTS)
 ```
 
 # Scope
@@ -54,12 +56,32 @@ bio_tmp %>%
   geom_line(aes(x = mes,
                 y = F_RATIO,
                 group = ano,
+                color = ano)) +
+  geom_hline(aes(yintercept = 0.5),color = 'black') +
+  geom_smooth(aes(x = as.numeric(mes), y =F_RATIO), color = 'red', method = 'lm') +
+  # facet_wrap(ano~.) +
+  labs(title = 'Costa Sul') + 
+  theme_bw()
+```
+
+```{r}
+bio_tmp %>% 
+  filter(regiao != '27.9.a.s.a') %>% 
+  # mutate(mes = substr(DATA, 6,7)) %>%
+  mutate(mes = as.numeric(mes) %>% factor) %>% 
+  group_by(ano,mes) %>% 
+  summarise(F_RATIO = sum(sexo == 'F')/length(sexo)) %>%
+  ggplot() + 
+  geom_line(aes(x = mes,
+                y = F_RATIO,
+                group = ano,
                 color = ano)) + 
   geom_hline(aes(yintercept = 0.5),color = 'black') +
-  facet_wrap(ano~.) +
+  # facet_wrap(ano~.) +
+  labs(title = 'Costa Oeste') + 
   theme_bw()
-
 ```
+
 
 ## Concurrent Sampling (Lotas)
 
@@ -70,11 +92,84 @@ source('CatDyn/scripts/0060_combina_dados_concurrent_sic_naut_converte_pesos_com
 
 # Output que interessa: naut_peso
 ```
+```{r}
+semanador_fs_bio = function(x){
+  mod = ifelse(as.numeric(as.character(x$ano)) == as.numeric(as.character(x$fishing_season)),
+               0,
+               1)
+  week_start =paste0(as.numeric(as.character(x$ano))-mod, '-10-01') %>% 
+    as.POSIXct(format = '%Y-%m-%d')
+    res = (difftime(x$data_venda, week_start, units = 'days')/7 +1) %>% trunc()
+    return(res)
+}
 
-Para fazer:
+arranjador_bio = function(df){
+  temp = df %>%
+    mutate(regiao = case_when(as.character(REGIAO) %in% 
+                              c('27.9.a.c.s', '27.9.a.c.n') ~ 'Costa Ocidental',
+                            as.character(REGIAO) == '27.9.a.s.a' ~ 'Costa Sul',
+                            T ~ as.character(REGIAO)),
+          
+          fishing_season = case_when(MES %in% c('10','11','12') ~
+                                       as.numeric(as.character(ano)),
+                                       T ~ as.numeric(as.character(ano)) - 1))
+  return(temp)
+}
+```
 
-Agregar tabela à semana_ano
-Atribuir semanador a esta tabela
+```{r}
+naut_peso2 =
+naut_peso %>% 
+  filter(REGIAO == '27.9.a.s.a') %>% 
+  mutate(id_caixa = case_when(as.numeric(as.character(ANO) <= 2016) & is.na(id_caixa) ~ paste0(id_viagem, cat_com),
+                              T ~ as.character(id_caixa)),
+         semana = lubridate::isoweek(DATA))
+
+contabilidade =
+naut_peso2 %>%
+  group_by(id_caixa,semana, ANO) %>% 
+  summarise(peso_am = unique(peso_am_caixa),
+            n_am = sum(n_nao_observados)) %>% 
+  group_by(semana,ANO) %>% 
+  summarise(peso = sum(peso_am),
+            n = sum(n_am),
+            mean_weight = peso/n)
+
+```
+
+```{r}
+contabilidade %>% 
+  ggplot +
+  geom_line(aes(x = semana,
+                y = mean_weight,
+                group = ANO,
+                color = ANO)) + 
+  # geom_smooth(aes(x = semana,
+  #                 y =  mean_weight)) + 
+  facet_wrap(ANO~.) +
+  labs(title = 'Costa SUL') + 
+  theme_bw()
+```
+
+### Interpolar pesos médios que faltam
+
+```{r}
+contabilidade$ANO = droplevels(contabilidade$ANO)
+contabilidade = complete(contabilidade, ANO)
+contabilidade = contabilidade %>%
+  arrange(ANO, semana) %>%
+  mutate(time =as.numeric(as.character(ANO))+as.numeric(semana)/52)
+
+contabilidade$mean_weight_estim = na.interpolation(contabilidade$mean_weight)
+  
+
+contabilidade %>%
+  ggplot() + 
+  geom_line(aes(x = time, y = mean_weight_estim), color = 'red') +
+  geom_line(aes(x = time, y = mean_weight+2))  + 
+  theme_bw()
+```
+
 
 ## Vendas-Dia
 
@@ -90,23 +185,23 @@ load('CatDyn/data/initial_data_occ_sumario.Rdata')
 ```{r, include = F}
 
 # Calcula numero de semanas desde o inicio do ano de calendario
-semanador_y = function(x){
-  week_start =paste0(as.numeric(as.character(x$year_sale)), '-01-01') %>% 
-    as.POSIXct(format = '%Y-%m-%d')
-    res = (difftime(x$IDATVEND, week_start, units = 'days')/7 +1) %>% trunc()
-    return(res)
-  }
-
-# Calcula numero de semanas desde o inicio da fishing season
-semanador_fs = function(x){
-  mod = ifelse(as.numeric(as.character(x$year_sale)) == as.numeric(as.character(x$fishing_season)),
-               0,
-               1)
-  week_start =paste0(as.numeric(as.character(x$year_sale))-mod, '-10-01') %>% 
-    as.POSIXct(format = '%Y-%m-%d')
-    res = (difftime(x$IDATVEND, week_start, units = 'days')/7 +1) %>% trunc()
-    return(res)
-  }
+# semanador_y = function(x){
+#   week_start =paste0(as.numeric(as.character(x$year_sale)), '-01-01') %>% 
+#     as.POSIXct(format = '%Y-%m-%d')
+#     res = (difftime(x$IDATVEND, week_start, units = 'days')/7 +1) %>% trunc()
+#     return(res)
+#   }
+# 
+# # Calcula numero de semanas desde o inicio da fishing season
+# semanador_fs = function(x){
+#   mod = ifelse(as.numeric(as.character(x$year_sale)) == as.numeric(as.character(x$fishing_season)),
+#                0,
+#                1)
+#   week_start =paste0(as.numeric(as.character(x$year_sale))-mod, '-10-01') %>% 
+#     as.POSIXct(format = '%Y-%m-%d')
+#     res = (difftime(x$IDATVEND, week_start, units = 'days')/7 +1) %>% trunc()
+#     return(res)
+#   }
 
 arranjador = function(df){
   temp = df %>%
@@ -114,6 +209,7 @@ arranjador = function(df){
                               c('27.9.a.c.n', '27.9.a.c.s') ~ 'Costa Ocidental',
                             as.character(zona) == '27.9.a.s.a' ~ 'Costa Sul',
                             T ~ as.character(zona)),
+           semana = lubridate::isoweek(IDATVEND),
            dia = weekdays(IDATVEND),
           fishing_season = case_when(month_sale %in% c('10','11','12') ~
                                        as.numeric(as.character(year_sale)),
@@ -122,18 +218,102 @@ arranjador = function(df){
 }
 ```
 
-# Fishing Season 2021-2022 
+### sazonalidade dos desembarques
 
 ```{r}
-vd_21_22 = vd %>%
-  filter(year_sale %in% c(2021,2022))
+vd %>%
+  filter(zona == '27.9.a.s.a') %>% 
+  filter(EGRUPART == 'MIS_MIS') %>% 
+  group_by(year_sale, month_sale) %>% 
+  summarise(QVENDA = sum(QVENDA)) %>% 
+  ggplot() + 
+  geom_line(aes(x = month_sale,
+                y = QVENDA,
+                group = year_sale,
+                color = year_sale)) + 
+  theme_bw()
+```
+
+
+
+# Ano 2021
+
+```{r}
+vd_21 = vd %>%
+  filter(year_sale %in% c(2021)) %>% 
+  filter(EGRUPART == 'MIS_MIS') %>% 
+  arranjador()
+```
+
+
+```{r}
+cd21 = vd_21 %>%  
+  filter(regiao == 'Costa Sul') %>% 
+  group_by(IDATVEND, semana) %>% 
+  summarise(QVENDA_s = sum(QVENDA),
+            effort_s = n_distinct(IEMBARCA)) %>% 
+  group_by(semana) %>% 
+  summarise(QVENDA = sum(QVENDA_s),
+            effort = sum(effort_s)) %>% 
+  left_join(.,
+                    contabilidade %>% 
+                     filter(ANO == '2021') %>% 
+                     select(semana, mean_weight_estim),
+                    by = c('semana' = 'semana'))
+  
 ```
 
 ```{r}
-vd_21_22 = arranjador(vd_21_22)
-vd_21_22$semana_fs = semanador_fs(vd_21_22) 
-vd_21_22 = vd
+df = cd21[1:52,] %>%
+  transmute(obscat = QVENDA,
+            obseff = effort,
+            mw = mean_weight_estim,
+            week = semana)
+
+library(CatDyn)
+
+occ_cat = as.CatDynData(x=df,
+                       step="week",
+                       fleet.name="Artisanal-S",
+                       coleff=2,
+                       colcat=1,
+                       colmbw=3,
+                       unitseff="trips",
+                       unitscat="kg",
+                       unitsmbw="g",
+                       nmult="mill",
+                       season.dates=c(as.Date("2021-01-01"),
+                                      as.Date("2021-12-26")))
+
+plot.CatDynData(occ_cat,
+                mark = T,
+                offset = c(0,1,10),
+                hem = 'N')
+
+M         <- 1/52 #1/Time step
+N0.ini    <- 10 #billions
+P1.ini    <- 0.1 #billions
+P2.ini    <- 0.05 #billions
+k.ini     <- 0.1 #1/n of boats
+alpha.ini <- 0.7 #adimensional
+beta.ini  <- 0.6 #adimensional
+P1 = 51
+pars.ini  <- log(c(M,
+                   N0.ini,
+                   P1.ini,
+                   k.ini,
+                   alpha.ini,
+                   beta.ini))
+
+dates <- c(head(occ_cat$Data$`Artisanal-S`$time.step,1),
+           P1,
+           tail(occ_cat$Data$`Artisanal-S`$time.step,1))
+
+occ.P2.ini <- catdynexp(x=occ_cat,
+                               p=1,
+                               par=pars.ini,
+                               dates=dates,
+                               distr="aplnormal")
+
 ```
-
-
 

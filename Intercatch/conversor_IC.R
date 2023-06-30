@@ -27,15 +27,21 @@ land = read.csv(paste0(dados, 'desembarques//desemb_2022.csv'),
 #   summarise(QESTIMADA = sum(DESEMBARQUE))
 
 
-slv = read.csv(paste0(dados, 'especies_slv/slv.csv'))
+# slv = read.csv(paste0(dados, 'especies_slv/slv.csv'))
+load(paste0(dados, 'especies_slv/especies_slv.Rdata')); slv = especies_slv; rm(especies_slv)
 portos = read.csv(paste0(dados, 'portos_slv//codigos_portos.csv'))
 portos[182,] = c(40950, "CAIS DO BICO", "csbic", "NW","AVEIRO", "PTCDB", "CDB",NA,NA)
 
 
 # acrescenta codigos fao da tabela SLV 
-land = merge(land,slv[,c("ESPECIE_SLV","COD_FAO","FAMILIA")],all.x=T,all.y=F,
+# land = merge(land,slv[,c("ESPECIE_SLV","COD_FAO","FAMILIA")],all.x=T,all.y=F,
+#              by.x = 'IESPECIE',
+#              by.y ="ESPECIE_SLV")
+
+land = merge(land,slv[,c("IESPECIE","CODFAO","COD_FAMILIA")],all.x=T,all.y=F,
              by.x = 'IESPECIE',
-             by.y ="ESPECIE_SLV")
+             by.y ="IESPECIE")
+
 
 # acrescenta portos slv
 land =merge(land,portos[,c("codporto","nome","zona")],
@@ -57,11 +63,11 @@ fao = c("SQC","OCT","OMZ","CTC",
 # transforma tabela
 land_export =
 land %>%
-  select(nome, zona, COD_FAO, IANO, IMES, EARTE, QESTIMADA) %>%
+  select(nome, zona, CODFAO, IANO, IMES, EARTE, QESTIMADA) %>%
   filter(IANO == ano) %>%
   # remove artes espanholas
   filter(EARTE %in% unique(land$EARTE)[!grepl("SP_", unique(land$EARTE))]) %>%
-  filter(COD_FAO %in% fao) %>%
+  filter(CODFAO %in% fao) %>%
   mutate(zona = factor(case_when(zona == "NW" ~ "27.9.a.c.n",
                                  zona == "SW" ~ "27.9.a.c.s",
                                  zona == 'S' ~ "27.9.a.s.a",
@@ -71,7 +77,7 @@ land %>%
          EARTE = factor(case_when(EARTE == 3 ~ "OTB",
                                     EARTE == 5 ~ 'PS_SPF_0_0_0',
                                     T ~ 'MIS_MIS_0_0_0'))) %>%
-  group_by(COD_FAO, zona, IMES, EARTE) %>%
+  group_by(CODFAO, zona, IMES, EARTE) %>%
   # desembarques à zona, em kg
   summarise(QESTIMADA = sum(QESTIMADA, na.rm = T)) %>% 
   filter(zona != 'O')
@@ -79,10 +85,11 @@ land %>%
 # land_export = land %>% filter(COD_FAO %in% fao)
 
 # altera 'SQU' para 'OMZ' para ficar de acordo com o nome do stock do ICES
-land_export[land_export$COD_FAO == 'SQU',]$COD_FAO = 'OMZ'
+land_export[land_export$CODFAO == 'SQU',]$CODFAO = 'OMZ'
 land_export$zona = as.character(land_export$zona)
 
 # save(land, file="C://Google Drive//Polvices//WGCEPH 2020//desemb_mes_2019.Rdata")
+write.csv(land, file = 'intercatch_2023_raw.csv')
 
 for(j in unique(land_export$COD_FAO)){
   teste_9 = data.frame()
