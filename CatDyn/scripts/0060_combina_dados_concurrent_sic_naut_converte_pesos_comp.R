@@ -4,14 +4,14 @@
 ## Lota_naut_1: comprimentos (que irao ser passado a pesos)
 
 lota_naut_1 =
-  data.frame(id_viagem = c(lota16$ID_VIAGEM, lota_naut_1$id_viagem),
-             DATA = c(lota16$DATA, lota_naut_1$DATA),
-             ANO = c(lota16$ANO, lota_naut_1$ANO),
-             MES = c(lota16$MES, lota_naut_1$MES),
-             PORTO_NOME = c(lota16$PORTO_NOME, as.character(lota_naut_1$PORTO)),
+  data.frame(id_viagem = c(lota16$ID_VIAGEM  %>% as.character(), lota_naut_1$id_viagem %>% as.character()),
+             DATA = c(lota16$DATA , lota_naut_1$DATA),
+             ANO = c(lota16$ANO %>% as.character(), lota_naut_1$ANO %>% as.character()),
+             MES = c(lota16$MES %>% as.character(), lota_naut_1$MES %>% as.character()),
+             PORTO_NOME = c(lota16$PORTO_NOME %>% as.character(), as.character(lota_naut_1$PORTO)),
              REGIAO = c(lota16$REGIAO, as.character(lota_naut_1$REGIAO)),
-             GEAR = c(lota16$GEAR, lota_naut_1$GEAR),
-             cat_com = c(lota16$cat, lota_naut_1$cat_com),
+             GEAR = c(lota16$GEAR %>% as.character(), lota_naut_1$GEAR %>% as.character()),
+             cat_com = c(lota16$cat %>% as.character(), lota_naut_1$cat_com %>% as.character()),
              classe_comp = c(lota16$C_CLASSE, lota_naut_1$classe_comp),
              # artificio para bater certo, as variaveis nao sao equivalentes
              # serve só para ambos os df passarem pelo mesmo numero de passos de ampliaçao
@@ -94,14 +94,14 @@ lota_naut_2_cmp =
 
 
 naut_cmp = data.frame(
-  id_viagem = c(lota_naut_1$id_viagem, lota_naut_2_cmp$id_viagem),
+  id_viagem = c(lota_naut_1$id_viagem, lota_naut_2_cmp$id_viagem %>% as.character()),
   DATA = c(lota_naut_1$DATA, lota_naut_2_cmp$DATA),
-  ANO = c(lota_naut_1$ANO, lota_naut_2_cmp$ANO),
-  MES = c(lota_naut_1$MES, lota_naut_2_cmp$MES),
+  ANO = c(lota_naut_1$ANO, lota_naut_2_cmp$ANO %>% as.character()),
+  MES = c(lota_naut_1$MES, lota_naut_2_cmp$MES %>% as.character()),
   PORTO_NOME = c(lota_naut_1$PORTO_NOME, as.character(lota_naut_2_cmp$PORTO)),
   REGIAO = c(lota_naut_1$REGIAO, as.character(lota_naut_2_cmp$REGIAO)),
-  GEAR = c(lota_naut_1$GEAR, lota_naut_2_cmp$GEAR),
-  cat_com = c(lota_naut_1$cat_com, lota_naut_2_cmp$cat_com),
+  GEAR = c(lota_naut_1$GEAR, lota_naut_2_cmp$GEAR %>% as.character()),
+  cat_com = c(lota_naut_1$cat_com, lota_naut_2_cmp$cat_com %>% as.character()),
   classe_comp = c(trunc(lota_naut_1$classe_comp), lota_naut_2_cmp$classe_comp),
   land_kg = c(lota_naut_1$land_kg, lota_naut_2_cmp$land_kg),
   peso_amostrado_dom = c(lota_naut_1$peso_amostrado_dom, lota_naut_2_cmp$peso_amostrado_dom),

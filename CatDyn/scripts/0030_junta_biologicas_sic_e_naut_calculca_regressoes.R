@@ -6,14 +6,14 @@
 # Junção das duas tabelas
 
 bio_tmp =
-  data.frame(regiao = c(bio16$REGIAO, bio21$REGIAO),
+  data.frame(regiao = c(bio16$REGIAO %>% as.character(), bio21$REGIAO %>% as.character()),
              comp_manto = c(bio16$C_INDIVIDUAL_corr, bio21$comp_manto * 10),
              peso = c(bio16$P_INDIVIDUAL, bio21$peso_total),
-             ano = c(bio16$ANO, bio21$ANO),
+             ano = c(bio16$ANO %>% as.character(), bio21$ANO %>% as.character()),
              mes = c(format(bio16$DATA, format = '%m'),
                      format(bio21$DATA, format = '%m')),
-             sexo = c(bio16$SEXO, bio21$SEXO),
-             mat = c(bio16$EST_MATURACAO, bio21$EST_MATURACAO)) %>% 
+             sexo = c(bio16$SEXO %>% as.character(), bio21$SEXO %>% as.character()),
+             mat = c(bio16$EST_MATURACAO %>% as.character(), bio21$EST_MATURACAO %>% as.character())) %>% 
   mutate(mes = gsub('(?<=\\b|-)0',
                     '',
                     format(mes, format = '%m'),

@@ -10,6 +10,7 @@ library(dplyr)
 library(ggplot2)
 library(tidyr)
 library(imputeTS)
+library(CatDyn)
 ```
 
 # Scope
@@ -58,8 +59,8 @@ bio_tmp %>%
                 group = ano,
                 color = ano)) +
   geom_hline(aes(yintercept = 0.5),color = 'black') +
-  geom_smooth(aes(x = as.numeric(mes), y =F_RATIO), color = 'red', method = 'lm') +
-  # facet_wrap(ano~.) +
+  # geom_smooth(aes(x = as.numeric(mes), y =F_RATIO), color = 'red', method = 'lm') +
+  facet_wrap(ano~.) +
   labs(title = 'Costa Sul') + 
   theme_bw()
 ```
@@ -92,6 +93,7 @@ source('CatDyn/scripts/0060_combina_dados_concurrent_sic_naut_converte_pesos_com
 
 # Output que interessa: naut_peso
 ```
+
 ```{r}
 semanador_fs_bio = function(x){
   mod = ifelse(as.numeric(as.character(x$ano)) == as.numeric(as.character(x$fishing_season)),
@@ -145,7 +147,7 @@ contabilidade %>%
                 group = ANO,
                 color = ANO)) + 
   # geom_smooth(aes(x = semana,
-  #                 y =  mean_weight)) + 
+  #                 y =  mean_weight)) +
   facet_wrap(ANO~.) +
   labs(title = 'Costa SUL') + 
   theme_bw()
@@ -154,7 +156,8 @@ contabilidade %>%
 ### Interpolar pesos médios que faltam
 
 ```{r}
-contabilidade$ANO = droplevels(contabilidade$ANO)
+contabilidade$ANO = factor(contabilidade$ANO)
+contabilidade$ANO = droplevels(contabilidade$ANO) 
 contabilidade = complete(contabilidade, ANO)
 contabilidade = contabilidade %>%
   arrange(ANO, semana) %>%
@@ -178,8 +181,10 @@ Carregar vendas dia:
 ```{r, include = F}
 # source('scripts/vd_import.R')
 getwd()
-load('CatDyn/data/initial_data_occ.Rdata')
-load('CatDyn/data/initial_data_occ_sumario.Rdata')
+# load('CatDyn/data/initial_data_occ.Rdata')
+# load('CatDyn/data/initial_data_occ_sumario.Rdata')
+load('CatDyn/data/initial_data_catdyn_wgceph.Rdata')
+names(vd)[grepl('OCC', names(vd))] = 'QVENDA'
 ```
 
 ```{r, include = F}
@@ -234,83 +239,103 @@ vd %>%
   theme_bw()
 ```
 
-
-
-# Ano 2021
-
 ```{r}
-vd_21 = vd %>%
-  filter(year_sale %in% c(2021)) %>% 
+vd %>%
+  filter(zona == '27.9.a.s.a') %>% 
   filter(EGRUPART == 'MIS_MIS') %>% 
-  arranjador()
+  group_by(year_sale, month_sale) %>% 
+  summarise(QVENDA = sum(QVENDA)) %>% 
+  ggplot() + 
+  geom_line(aes(x = month_sale,
+                y = QVENDA,
+                group = year_sale,
+                color = year_sale)) + 
+  facet_wrap(year_sale ~.) +
+  theme_bw()
 ```
 
+# Ensaios
 
 ```{r}
-cd21 = vd_21 %>%  
-  filter(regiao == 'Costa Sul') %>% 
-  group_by(IDATVEND, semana) %>% 
-  summarise(QVENDA_s = sum(QVENDA),
-            effort_s = n_distinct(IEMBARCA)) %>% 
-  group_by(semana) %>% 
-  summarise(QVENDA = sum(QVENDA_s),
-            effort = sum(effort_s)) %>% 
-  left_join(.,
-                    contabilidade %>% 
-                     filter(ANO == '2021') %>% 
-                     select(semana, mean_weight_estim),
-                    by = c('semana' = 'semana'))
-  
+#TODO MUDAR BODY WEIGHT PARA KG
+source('CatDyn/scripts/0110_prepara_fs_2022.R')
+source('CatDyn/scripts/0120_prepara_fs_2021.R')
+source('CatDyn/scripts/0130_prepara_fs_2012.R')
 ```
 
+## - Ano 2022 - Frota completa
+
 ```{r}
-df = cd21[1:52,] %>%
-  transmute(obscat = QVENDA,
-            obseff = effort,
-            mw = mean_weight_estim,
-            week = semana)
-
-library(CatDyn)
-
-occ_cat = as.CatDynData(x=df,
-                       step="week",
-                       fleet.name="Artisanal-S",
-                       coleff=2,
-                       colcat=1,
-                       colmbw=3,
-                       unitseff="trips",
-                       unitscat="kg",
-                       unitsmbw="g",
-                       nmult="thou",
-                       season.dates=c(as.Date("2021-01-01"),
-                                      as.Date("2021-12-26")))
-
-plot.CatDynData(occ_cat,
+plot.CatDynData(occ_cat_22,
                 mark = T,
                 offset = c(0,1,10),
                 hem = 'N')
+```
 
+```{r}
+plot.CatDynData(occ_cat_22_ref,
+                mark = T,
+                offset = c(0,1,10),
+                hem = 'N')
+```
+# Ano 2021
+
+```{r}
+plot.CatDynData(occ_cat_21,
+                mark = T,
+                offset = c(0,1,10),
+                hem = 'N')
+```
+
+```{r}
+plot.CatDynData(occ_cat_21_ref,
+                mark = T,
+                offset = c(0,1,10),
+                hem = 'N')
+```
+
+## Ano 2012
+
+```{r}
+plot.CatDynData(occ_cat_12,
+                mark = T,
+                offset = c(0,1,10),
+                hem = 'N')
+```
+
+```{r}
+plot.CatDynData(occ_cat_12_ref,
+                mark = T,
+                offset = c(0,1,10),
+                hem = 'N')
+```
+
+
+
+```{r}
 M         <- 1/52 #1/Time step
-N0.ini    <-100 #billions
-P1.ini    <- 10 #billions
-P2.ini    <- 10 #billions
-k.ini     <- 10 #1/n of boats
+N0.ini    <-10000 #billions
+P1.ini    <- 10 #thousands
+P2.ini    <- 10 #thousands
+k.ini     <- 1 #1/n of boats
 alpha.ini <- 1 #adimensional
 beta.ini  <- 1 #adimensional
-P1 = 51
+P1 = 14
+P2 = 49
 pars.ini  <- log(c(M,
                    N0.ini,
                    P1.ini,
+                   P2.ini,
                    k.ini,
                    alpha.ini,
                    beta.ini))
 
-dates <- c(head(occ_cat$Data$`Artisanal-S`$time.step,1),
-           P1,
-           tail(occ_cat$Data$`Artisanal-S`$time.step,1))
+dates <- c(head(occ_cat_12_ref$Data$`Artisanal-S`$time.step,1),
+           P1,P2,
+           tail(occ_cat_12_ref$Data$`Artisanal-S`$time.step,1))
 
-occ.P2.ini <- catdynexp(x=occ_cat,
-                               p=1,
+occ.P2.ini <- catdynexp(x=occ_cat_12_ref,
+                               p=2,
                                par=pars.ini,
                                dates=dates,
                                distr="aplnormal")
