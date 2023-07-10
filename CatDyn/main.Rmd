@@ -250,6 +250,23 @@ vd %>%
                 y = QVENDA,
                 group = year_sale,
                 color = year_sale)) + 
+  theme_bw()
+```
+
+
+```{r}
+vd %>%
+  filter(zona == '27.9.a.s.a') %>% 
+  filter(EGRUPART == 'MIS_MIS') %>%
+  filter(year_sale == 2021) %>% 
+  mutate(dia = lubridate::yday(IDATVEND)) %>% 
+  group_by(year_sale, dia) %>% 
+  summarise(QVENDA = sum(QVENDA)) %>% 
+  ggplot() + 
+  geom_line(aes(x = dia,
+                y = QVENDA,
+                group = year_sale,
+                color = year_sale)) + 
   facet_wrap(year_sale ~.) +
   theme_bw()
 ```
@@ -309,36 +326,187 @@ plot.CatDynData(occ_cat_12_ref,
                 offset = c(0,1,10),
                 hem = 'N')
 ```
+```{r}
+trialer = function(data, p,M, N0.ini, P.ini, k.ini,
+                   alpha.ini, beta.ini, P,
+                   distr, method, itnmax, disp = list()){
+ 
+  pars.ini = log(c(M,
+                   N0.ini,
+                   unlist(P.ini),
+                   k.ini,
+                   alpha.ini,
+                   beta.ini,
+                   unlist(disp)))
+  
+  dates = c(head(data$Data$`Artisanal-S`$time.step,1),
+           unlist(P),
+           tail(data$Data$`Artisanal-S`$time.step,1))
+  
+  res = list()
+  
+  res$pre_fit = catdynexp(x=data,
+                          p=p,
+                          par=pars.ini,
+                          dates=dates,
+                          distr=distr)
+  
+  res$fit = CatDynFit(x = data,
+                  p = p,
+                  par = pars.ini,
+                  dates = dates,
+                  distr = distr,
+                  method = method,
+                  itnmax = itnmax)
+  
+  res$pred = CatDynPred(res$fit,method)
+  
+  return(res)
+}
+
+plotador = function(data, model){
+  plot.CatDynData(data,
+                mark = T,
+                offset = c(0,1,10),
+                hem = 'N')
+  
+  plot(x=model$pre_fit,
+     leg.pos="topright",
+     Biom.tstep=7,
+     Cat.tstep=120,
+     Biom.xpos=0.4,
+     Biom.ypos=0,
+     Cat.xpos=0.4,
+     Cat.ypos=0.1)
+
+  plot(x=model$pred,
+       leg.pos="topright",
+       Biom.tstep=7,
+       Cat.tstep=10,
+       Biom.xpos=0.18,
+       Biom.ypos=0.1,
+       Cat.xpos=0.18,
+       Cat.ypos=0.2)
+    
+}
+```
+
+```{r}
+fit_12 = 
+  trialer(occ_cat_12,
+        p = 2,
+        M = 1/52,
+        N0.ini = 10000,
+        P.ini = list(100, 100),
+        k.ini = 0.1,
+        alpha.ini = 0.1,
+        beta.ini  = 0.11,
+        P = list(14, 49),
+        distr = 'aplnormal',
+        method = 'spg',
+        itnmax = 10)
+
+plotador(occ_cat_12, fit_12)
+```
+
+```{r}
+fit_12_ref = 
+  trialer(occ_cat_12_ref,
+        p = 3,
+        M = 1/52,
+        N0.ini = 10000,
+        P.ini = list(100, 100,100),
+        k.ini = 0.1,
+        alpha.ini = 0.1,
+        beta.ini  = 0.11,
+        P = list(2,14, 49),
+        distr = 'lognormal',
+        method = 'spg',
+        itnmax = 10,
+        disp = 50)
+
+plotador(occ_cat_12_ref, fit_12_ref)
+```
+
+```{r}
+fit_22_ref = 
+  trialer(occ_cat_22_ref,
+        p = 3,
+        M = 1/52,
+        N0.ini = 10000,
+        P.ini = list(100, 100,100),
+        k.ini = 0.1,
+        alpha.ini = 0.1,
+        beta.ini  = 0.11,
+        P = list(2,14, 49),
+        distr = 'lognormal',
+        method = 'spg',
+        itnmax = 10,
+        disp = 50)
+
+plotador(occ_cat_22_ref, fit_22_ref)
+```
 
 
 
 ```{r}
-M         <- 1/52 #1/Time step
-N0.ini    <-10000 #billions
-P1.ini    <- 10 #thousands
-P2.ini    <- 10 #thousands
-k.ini     <- 1 #1/n of boats
-alpha.ini <- 1 #adimensional
-beta.ini  <- 1 #adimensional
-P1 = 14
-P2 = 49
-pars.ini  <- log(c(M,
-                   N0.ini,
-                   P1.ini,
-                   P2.ini,
-                   k.ini,
-                   alpha.ini,
-                   beta.ini))
 
-dates <- c(head(occ_cat_12_ref$Data$`Artisanal-S`$time.step,1),
-           P1,P2,
-           tail(occ_cat_12_ref$Data$`Artisanal-S`$time.step,1))
+ggplot() +
+  geom_line(aes(x = fit_12_ref$fit$Data$Data$`Artisanal-S-2012-Targeted`$time.step,
+                y = fit_12_ref$fit$Data$Data$`Artisanal-S-2012-Targeted`$obscat.kg),
+            col = 'red') +
+  labs(title = 'Catch')
 
-occ.P2.ini <- catdynexp(x=occ_cat_12_ref,
-                               p=2,
-                               par=pars.ini,
-                               dates=dates,
-                               distr="aplnormal")
+ggplot() +
+  geom_line(aes(x = fit_12_ref$fit$Data$Data$`Artisanal-S-2012-Targeted`$time.step,
+                y = fit_12_ref$fit$Data$Data$`Artisanal-S-2012-Targeted`$obseff.trips),
+            col = 'blue') +
+  labs(title = 'Effort')
+
+ggplot() +
+  geom_line(aes(x = fit_12_ref$fit$Data$Data$`Artisanal-S-2012-Targeted`$time.step,
+                y = fit_12_ref$fit$Data$Data$`Artisanal-S-2012-Targeted`$obscat.kg/
+                  fit_12_ref$fit$Data$Data$`Artisanal-S-2012-Targeted`$obseff.trips),
+            col = 'purple') +
+  labs(title = 'CPUE')
+
 
 ```
+
+```{r}
+
+ggplot() +
+  geom_line(aes(x = fit_22_ref$fit$Data$Data$`Artisanal-S-2022-Targeted`$time.step,
+                y = fit_22_ref$fit$Data$Data$`Artisanal-S-2022-Targeted`$obscat.kg),
+            col = 'red') +
+  labs(title = 'Catch')
+
+ggplot() +
+  geom_line(aes(x = fit_22_ref$fit$Data$Data$`Artisanal-S-2022-Targeted`$time.step,
+                y = fit_22_ref$fit$Data$Data$`Artisanal-S-2022-Targeted`$obseff.trips),
+            col = 'blue') +
+  labs(title = 'Effort')
+
+ggplot() +
+  geom_line(aes(x = fit_22_ref$fit$Data$Data$`Artisanal-S-2022-Targeted`$time.step,
+                y = fit_22_ref$fit$Data$Data$`Artisanal-S-2022-Targeted`$obscat.kg/
+                  fit_22_ref$fit$Data$Data$`Artisanal-S-2022-Targeted`$obseff.trips),
+            col = 'purple') +
+  labs(title = 'CPUE')
+
+
+```
+
+# validaçao do modelo
+
+numerical gradient higher than 1 for any parameter - *ELIMINATED*
+
+M > 0.1 or M < 0.01 - *ELIMINATED*
+
+Lowest possible correlation between parameter estimates
+
+
+
+
+
 
